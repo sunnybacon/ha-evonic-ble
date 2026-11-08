@@ -1,0 +1,9 @@
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+# Core correctness, import ordering, common bugs and async misuse. Exception
+# boundaries also receive manual review; lint is not a full HA/runtime test.
+select = ["E", "F", "I", "B", "ASYNC"]
+ignore = ["E501"]

@@ -1,0 +1,9 @@
+Evonic Fires names, trademarks, wordmark and monogram belong to their respective
+owners. The manufacturer artwork in custom_components/evonic_ble/brand is used
+to identify the compatible product and is excluded from the source-code MIT
+licence. No endorsement or manufacturer support is implied. See docs/BRANDING.md
+for the original artwork URLs and packaging details.
+
+This project implements an independently investigated Bluetooth protocol. It
+does not distribute the manufacturer's APK, decompiled application source,
+firmware, phone bug reports or private Bluetooth captures.

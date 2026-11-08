@@ -1,0 +1,36 @@
+{
+  "title": "Evonic BLE",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect a Bluetooth Evonic fire",
+        "description": "Requires a local Linux Bluetooth adapter and HCI monitor permissions. Bluetooth proxies are unsupported. Setup reads status only. Power, target temperature, Low/High and brightness controls are included. Temperature, heat-level and brightness changes require the fire to be on.",
+        "data": {
+          "address": "Bluetooth address"
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "Enter a Bluetooth address in AA:BB:CC:DD:EE:FF format.",
+      "monitor_unavailable": "Home Assistant Core cannot open the Linux Bluetooth monitor. No fire commands were sent.",
+      "no_local_adapter": "The fire is not visible through a local Linux Bluetooth adapter. Disconnect the phone app and check Bluetooth range."
+    },
+    "abort": {
+      "already_configured": "This fire is already configured."
+    }
+  },
+  "entity": {
+    "climate": {
+      "fire": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "low": "Low",
+              "high": "High"
+            }
+          }
+        }
+      }
+    }
+  }
+}

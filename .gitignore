@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.zip
+*.log
+.env
+.env.*
+diagnostics/
+captures/
+DEVELOPMENT_STATUS.md
+*.apk
+*.xapk
+*.btsnoop
