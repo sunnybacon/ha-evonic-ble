@@ -1,6 +1,9 @@
 {
   "domain": "evonic_ble",
   "name": "Evonic BLE",
+  "categories": [
+    "climate.thermostats_heating"
+  ],
   "codeowners": [
     "@sunnybacon"
   ],
