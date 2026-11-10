@@ -70,8 +70,10 @@ If Evonic BLE is already installed manually, back up its folder first, add the
 custom repository and download it through Marketplace. Keep the existing
 Devices & Services entry; do not delete and recreate it. Restart HA after the
 download. Using the same integration domain and existing entry should preserve
-the device, entity IDs and settings. This migration still needs verification
-against the published release.
+the device, entity IDs and settings. This migration was verified on the owner's
+HA 2026.11.1 installation with release `0.1.0-alpha.16`: the existing entry,
+device, entity IDs and area were retained, and room-temperature polling resumed
+after restart. This does not establish every installation or rollback path.
 
 For manual installation:
 

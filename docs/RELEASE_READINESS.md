@@ -13,8 +13,11 @@ optional wrapper patch are not part of this project.
 
 GitHub Actions runs offline tests/lint, Hassfest and Marketplace validation.
 Use the actual Actions results for current status; the presence of a workflow
-file is not proof that a check passed. Marketplace installation/update and
-rollback should be verified against the published version before broader claims.
+file is not proof that a check passed. Tests/lint, Hassfest and Marketplace
+validation passed for the initial public release. Adoption of an existing manual
+installation through Marketplace was verified on HA 2026.11.1 with alpha.16;
+the existing device/entities and area survived restart, and status polling resumed.
+File-version rollback and broader installations still require their own trials.
 Known device/runtime validation limits are in ../REMAINING_WORK.md.
 
 Public packaging omits private configuration/history, APK/decompiled source,
