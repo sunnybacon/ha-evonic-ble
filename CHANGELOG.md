@@ -1,5 +1,17 @@
 # Changes
 
+## 0.1.0-alpha.17 — 2026-11-15
+
+- Confirm a zero room-temperature reading with one additional status query.
+  Publish the fresh response instead of an isolated zero; if confirmation times
+  out or contains no valid measurement, report room temperature as unknown while
+  retaining confirmed controls. Repeated zero remains valid for a genuinely cold
+  sensor. Receiver/connection failures retain the existing recovery behaviour.
+- Apply the same check during polling and command confirmation, without replaying
+  any power, brightness or heating command. No entity or configuration changes.
+- Add regression coverage for transient and repeated zeros, missing/timed-out
+  confirmation, fresh control settings and control-write non-replay.
+
 ## 0.1.0-alpha.16 — 2026-11-08
 
 - Make target temperature and Low/High standard climate controls for new and

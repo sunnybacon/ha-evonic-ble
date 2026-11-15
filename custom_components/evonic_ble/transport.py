@@ -7,6 +7,7 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from dataclasses import replace
 
 from bleak.exc import BleakGATTProtocolError
 
@@ -172,6 +173,22 @@ class EvonicTransport:
         await asyncio.sleep(0.15)
 
     async def _query(self, client, characteristic, queue) -> FireState:
+        state = await self._read_state(client, characteristic, queue)
+        if state.room_temperature != 0:
+            return state
+        # Isolated zero measurements have been observed between normal indoor
+        # readings. Confirm with another query, never another control write.
+        # Repeated zero is still valid: the sensor may genuinely be at freezing.
+        _LOGGER.debug("Zero room temperature received; requesting confirmation")
+        try:
+            return await self._read_state(client, characteristic, queue)
+        except TimeoutError:
+            # The first packet confirmed the controls, but not this measurement.
+            # Connection/receiver errors still propagate through normal recovery.
+            _LOGGER.debug("Zero room temperature could not be confirmed")
+            return replace(state, room_temperature=None)
+
+    async def _read_state(self, client, characteristic, queue) -> FireState:
         while not queue.empty():
             item = queue.get_nowait()
             if isinstance(item, Exception):

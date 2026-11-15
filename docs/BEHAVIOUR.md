@@ -59,6 +59,15 @@ during heating trials. This is not calibration or a manufacturer specification.
 A defensive 0–60 °C range suppresses implausible room readings independently of
 valid power/settings. Natural measurement changes cannot fail setting confirmation.
 
+A zero reading triggers one additional status-only query, including while Off
+and during command confirmation. The latest response supplies both temperature
+and controls. If that query times out, room temperature becomes unknown and the
+first response's confirmed controls remain available. Invalid measurements also
+become unknown; connection/receiver errors still use normal failure recovery.
+Two zero readings are accepted, so genuine freezing temperatures are supported.
+This filters isolated zero glitches; it cannot identify a sensor fault that
+consistently reports zero. No previous reading is presented as a new measurement.
+
 Low / High preserves recognized controller modes. Target changes select manual
 mode 0, matching the app. Unknown modes remain visible as `controller_mode_raw`;
 182 appeared after touchscreen use, but its meaning is unresolved. Target and

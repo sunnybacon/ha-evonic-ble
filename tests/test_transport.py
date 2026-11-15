@@ -55,7 +55,10 @@ class FakeClient:
         self.fixture.assertTrue(response)
         if payload == protocol.QUERY:
             if self.fixture.replies:
-                self.fixture.receiver.parser.callback(packet(self.fixture.state))
+                replies = getattr(self.fixture, "status_replies", None)
+                state = replies.pop(0) if replies else self.fixture.state
+                if state is not None:
+                    self.fixture.receiver.parser.callback(packet(state))
         elif self.fixture.apply:
             if getattr(self.fixture, "room_after_write", None) is not None:
                 self.fixture.state = replace(
@@ -140,6 +143,52 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.room_temperature, 20.4)
         self.assertFalse(result.power)
         self.assertEqual(self.writes, [protocol.QUERY])
+
+    async def test_transient_zero_is_replaced_by_fresh_status_on_and_off(self):
+        for power in (False, True):
+            with self.subTest(power=power):
+                zero = replace(self.state, power=power, room_temperature=0)
+                confirmed = replace(zero, room_temperature=23.1)
+                self.status_replies = [zero, confirmed]
+                self.writes.clear()
+                result = await self.transport.execute()
+                self.assertEqual(result, confirmed)
+                self.assertEqual(self.writes, [protocol.QUERY, protocol.QUERY])
+
+    async def test_repeated_zero_remains_a_valid_temperature(self):
+        self.state = replace(self.state, room_temperature=0)
+        result = await self.transport.execute()
+        self.assertEqual(result.room_temperature, 0)
+        self.assertEqual(self.writes, [protocol.QUERY, protocol.QUERY])
+
+    async def test_unconfirmed_zero_is_unknown_without_losing_controls(self):
+        for confirmation in (None, replace(self.state, room_temperature=None)):
+            with self.subTest(confirmation=confirmation):
+                zero = replace(self.state, room_temperature=0)
+                self.status_replies = [zero, confirmation]
+                self.writes.clear()
+                result = await self.transport.execute()
+                self.assertIsNone(result.room_temperature)
+                self.assertEqual(result.control_settings, zero.control_settings)
+                self.assertEqual(self.writes, [protocol.QUERY, protocol.QUERY])
+                self.assertTrue(self.clients[-1].disconnected)
+                self.assertTrue(self.receiver.closed)
+
+    async def test_zero_confirmation_uses_latest_controls_too(self):
+        zero = replace(self.state, room_temperature=0)
+        fresh = replace(zero, power=True, target_temperature=24, room_temperature=23.1)
+        self.status_replies = [zero, fresh]
+        result = await self.transport.execute()
+        self.assertEqual(result, fresh)
+        self.assertEqual(self.writes, [protocol.QUERY, protocol.QUERY])
+
+    async def test_zero_during_control_confirmation_never_replays_mutation(self):
+        self.state = replace(self.state, room_temperature=23.1)
+        on = replace(self.state, power=True)
+        self.status_replies = [self.state, replace(on, room_temperature=0), on]
+        result = await self.transport.execute(power=True)
+        self.assertEqual(result, on)
+        self.assertEqual(self.writes, [protocol.QUERY, b"\x39\x01", protocol.QUERY, protocol.QUERY])
 
     async def test_missing_services_fail_before_any_gatt_write_and_clean_up(self):
         original = self.transport.connect
