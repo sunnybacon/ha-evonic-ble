@@ -7,6 +7,7 @@ import types
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 from bleak.exc import BleakGATTProtocolError
 
@@ -161,6 +162,45 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.room_temperature, 0)
         self.assertEqual(self.writes, [protocol.QUERY, protocol.QUERY])
 
+    async def test_repeated_zero_after_warm_reading_is_unknown_and_valid_reading_recovers(self):
+        self.state = replace(self.state, room_temperature=23.1)
+        with patch.object(transport, "monotonic", return_value=100):
+            await self.transport.execute()
+        reference = self.transport._temperature_reference
+        self.state = replace(self.state, room_temperature=0)
+        for now in (160, 220):
+            with patch.object(transport, "monotonic", return_value=now):
+                result = await self.transport.execute()
+            self.assertIsNone(result.room_temperature)
+            self.assertEqual(result.control_settings, self.state.control_settings)
+            self.assertEqual(self.transport._temperature_reference, reference)
+        self.state = replace(self.state, room_temperature=22.9)
+        result = await self.transport.execute()
+        self.assertEqual(result.room_temperature, 22.9)
+        self.assertTrue(all(p == protocol.QUERY for p in self.writes))
+
+    def test_zero_plausibility_accounts_for_age_and_gradual_cooling(self):
+        warm = replace(self.state, room_temperature=23)
+        zero = replace(self.state, room_temperature=0)
+        with patch.object(transport, "monotonic", return_value=100):
+            self.transport._checked_temperature(warm)
+        with patch.object(transport, "monotonic", return_value=160):
+            self.assertIsNone(self.transport._checked_temperature(zero).room_temperature)
+        # Once enough time has elapsed, the old sample no longer rules out zero.
+        with patch.object(transport, "monotonic", return_value=100 + 42 * 60):
+            self.assertEqual(self.transport._checked_temperature(zero).room_temperature, 0)
+        with patch.object(transport, "monotonic", return_value=3000):
+            self.transport._checked_temperature(replace(warm, room_temperature=1.5))
+        with patch.object(transport, "monotonic", return_value=3060):
+            self.assertEqual(self.transport._checked_temperature(zero).room_temperature, 0)
+
+    def test_missing_measurement_does_not_reset_plausibility_reference(self):
+        with patch.object(transport, "monotonic", return_value=100):
+            self.transport._checked_temperature(replace(self.state, room_temperature=23))
+        reference = self.transport._temperature_reference
+        self.transport._checked_temperature(replace(self.state, room_temperature=None))
+        self.assertEqual(self.transport._temperature_reference, reference)
+
     async def test_unconfirmed_zero_is_unknown_without_losing_controls(self):
         for confirmation in (None, replace(self.state, room_temperature=None)):
             with self.subTest(confirmation=confirmation):
@@ -189,6 +229,98 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         result = await self.transport.execute(power=True)
         self.assertEqual(result, on)
         self.assertEqual(self.writes, [protocol.QUERY, b"\x39\x01", protocol.QUERY, protocol.QUERY])
+
+    async def test_zero_confirmation_write_timeout_propagates_before_and_after_mutation(self):
+        for after_mutation in (False, True):
+            with self.subTest(after_mutation=after_mutation):
+                self.state = replace(self.state, power=False, room_temperature=20.4)
+                zero = replace(self.state, power=after_mutation, room_temperature=0)
+                self.status_replies = [self.state, zero] if after_mutation else [zero]
+                original = self.transport._write
+                calls = 0
+
+                async def write(
+                    client,
+                    characteristic,
+                    payload,
+                    original=original,
+                    fail_at=4 if after_mutation else 2,
+                ):
+                    nonlocal calls
+                    calls += 1
+                    if calls == fail_at:
+                        raise TimeoutError("GATT write timeout")
+                    await original(client, characteristic, payload)
+
+                self.transport._write = write
+                self.writes.clear()
+                try:
+                    with self.assertRaisesRegex(TimeoutError, "GATT write timeout"):
+                        await self.transport.execute(**({"power": True} if after_mutation else {}))
+                finally:
+                    self.transport._write = original
+                self.assertEqual(self.writes.count(b"\x39\x01"), int(after_mutation))
+                self.assertTrue(self.receiver.closed)
+                self.assertTrue(self.clients[-1].disconnected)
+
+    async def test_zero_confirmation_receiver_error_and_cancellation_propagate(self):
+        for error in (transport.EvonicError("Receiver failed"), asyncio.CancelledError()):
+            with self.subTest(error=type(error).__name__):
+                zero = replace(self.state, room_temperature=0)
+                original = self.transport._read_state
+                self.transport._read_state = AsyncMock(side_effect=[zero, error])
+                try:
+                    with self.assertRaises(type(error)):
+                        await self.transport.execute()
+                finally:
+                    self.transport._read_state = original
+                self.assertTrue(self.receiver.closed)
+                self.assertTrue(self.clients[-1].disconnected)
+
+    async def test_outer_deadline_during_zero_confirmation_is_not_optional_reply_expiry(self):
+        original = self.transport._read_state
+        entered = asyncio.Event()
+        calls = 0
+
+        async def read(client, characteristic, queue):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return replace(self.state, room_temperature=0)
+            entered.set()
+            await asyncio.Event().wait()
+
+        self.transport._read_state = read
+        try:
+            with self.assertRaises(TimeoutError):
+                async with asyncio.timeout(0.02):
+                    await self.transport.execute()
+        finally:
+            self.transport._read_state = original
+        self.assertTrue(entered.is_set())
+        self.assertTrue(self.receiver.closed)
+        self.assertTrue(self.clients[-1].disconnected)
+
+    async def test_malformed_full_confirmation_remains_a_protocol_failure(self):
+        original = self.transport._write
+        calls = 0
+
+        async def write(client, characteristic, payload):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                invalid = bytearray(packet(self.state))
+                invalid[7] = 99
+                self.receiver.parser.callback(bytes(invalid))
+            else:
+                await original(client, characteristic, payload)
+
+        self.state = replace(self.state, room_temperature=0)
+        self.transport._write = write
+        with self.assertRaisesRegex(transport.EvonicError, "unsupported status fields"):
+            await self.transport.execute()
+        self.assertTrue(self.receiver.closed)
+        self.assertTrue(self.clients[-1].disconnected)
 
     async def test_missing_services_fail_before_any_gatt_write_and_clean_up(self):
         original = self.transport.connect

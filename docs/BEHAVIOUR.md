@@ -61,12 +61,20 @@ valid power/settings. Natural measurement changes cannot fail setting confirmati
 
 A zero reading triggers one additional status-only query, including while Off
 and during command confirmation. The latest response supplies both temperature
-and controls. If that query times out, room temperature becomes unknown and the
+and controls. If its notification wait expires, room temperature becomes unknown and the
 first response's confirmed controls remain available. Invalid measurements also
 become unknown; connection/receiver errors still use normal failure recovery.
-Two zero readings are accepted, so genuine freezing temperatures are supported.
-This filters isolated zero glitches; it cannot identify a sensor fault that
-consistently reports zero. No previous reading is presented as a new measurement.
+Repeated zeros also undergo a plausibility check against the last valid reading
+and its age: allow 2 degrees Celsius of drop plus 0.5 degrees per elapsed minute.
+This is a defensive heuristic, not a manufacturer specification. Abrupt zeros
+become unknown; valid power/settings remain usable. Rejected or missing readings
+do not lower or refresh the reference. Normal measurements restore reporting.
+Cold startup, cooling near freezing and zero after a sufficiently long gap are
+accepted after confirmation. The reference uses monotonic time, stays in memory
+and resets on reload. This cannot identify every persistent sensor fault: an old
+reference eventually stops ruling out zero, and no reference exists at startup.
+No previous reading is presented as a new measurement. Nonzero measurements are
+not smoothed or filtered by this guard. Write/receiver failures use normal recovery.
 
 Low / High preserves recognized controller modes. Target changes select manual
 mode 0, matching the app. Unknown modes remain visible as `controller_mode_raw`;

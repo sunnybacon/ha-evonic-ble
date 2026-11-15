@@ -11,7 +11,8 @@ Completed:
 - Bounded serialized commands, brightness coalescing and explicit Off priority.
 - Selected mains/native-app/touchscreen recovery trials without command replay.
 - Cached diagnostics, official brand artwork and installation/troubleshooting docs.
-- 95 offline regression tests plus lint/format checks at the publication checkpoint.
+- 107 offline regression tests plus lint/format checks at the beta.1 checkpoint.
+- Whole-integration model review; beta.1 narrows optional temperature timeout handling.
 
 Remaining validation and maintenance:
 

@@ -8,6 +8,7 @@ import re
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import replace
+from time import monotonic
 
 from bleak.exc import BleakGATTProtocolError
 
@@ -29,6 +30,10 @@ _LOGGER = logging.getLogger(__name__)
 
 class EvonicError(RuntimeError):
     """A command or state query could not be confirmed."""
+
+
+class ReplyTimeout(TimeoutError):
+    """The notification wait expired after a status query was sent."""
 
 
 class CommandRejected(EvonicError):
@@ -95,6 +100,7 @@ class EvonicTransport:
         self.receiver_factory = receiver_factory
         self.lock = asyncio.Lock()
         self.reply_timeout = 6
+        self._temperature_reference: tuple[float, float] | None = None
 
     @asynccontextmanager
     async def _session(self):
@@ -175,18 +181,36 @@ class EvonicTransport:
     async def _query(self, client, characteristic, queue) -> FireState:
         state = await self._read_state(client, characteristic, queue)
         if state.room_temperature != 0:
-            return state
+            return self._checked_temperature(state)
         # Isolated zero measurements have been observed between normal indoor
         # readings. Confirm with another query, never another control write.
-        # Repeated zero is still valid: the sensor may genuinely be at freezing.
+        # Repeated zero also needs to fit any recent valid measurement.
         _LOGGER.debug("Zero room temperature received; requesting confirmation")
         try:
-            return await self._read_state(client, characteristic, queue)
-        except TimeoutError:
+            return self._checked_temperature(await self._read_state(client, characteristic, queue))
+        except ReplyTimeout:
             # The first packet confirmed the controls, but not this measurement.
             # Connection/receiver errors still propagate through normal recovery.
             _LOGGER.debug("Zero room temperature could not be confirmed")
             return replace(state, room_temperature=None)
+
+    def _checked_temperature(self, state: FireState) -> FireState:
+        """Reject abrupt zeros without smoothing or reusing old measurements."""
+        room = state.room_temperature
+        if room is None:
+            return state
+        now = monotonic()
+        if room == 0 and self._temperature_reference is not None:
+            previous, observed = self._temperature_reference
+            age_minutes = max(0, now - observed) / 60
+            # Defensive heuristic, not a manufacturer sensor specification:
+            # allow 2 C immediately plus 0.5 C/min cooling from the last valid
+            # sample. Rejected zeros never refresh or lower this reference.
+            if previous > 2 + 0.5 * age_minutes:
+                _LOGGER.debug("Rejected implausible zero room temperature")
+                return replace(state, room_temperature=None)
+        self._temperature_reference = (room, now)
+        return state
 
     async def _read_state(self, client, characteristic, queue) -> FireState:
         while not queue.empty():
@@ -196,7 +220,7 @@ class EvonicTransport:
         await self._write(client, characteristic, QUERY)
         rejected = None
         try:
-            async with asyncio.timeout(self.reply_timeout):
+            async with asyncio.timeout(self.reply_timeout) as reply_deadline:
                 while True:
                     payload = await queue.get()
                     if isinstance(payload, Exception):
@@ -215,11 +239,13 @@ class EvonicTransport:
                                 payload[8],
                             )
         except TimeoutError as error:
+            if not reply_deadline.expired():
+                raise
             if rejected is not None:
                 raise EvonicError(
                     "Fire replied with unsupported status fields; see debug log"
                 ) from error
-            raise
+            raise ReplyTimeout("Fire status notification timed out") from error
 
     async def execute(self, *, power=None, brightness=None, target=None, level=None) -> FireState:
         """Query or change ONE control; never retry or replay a control write."""

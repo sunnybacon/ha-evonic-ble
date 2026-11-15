@@ -1,7 +1,7 @@
 # Focused code review
 
 This is a manual pass by the developing assistant, not an independent human
-audit or complete Home Assistant runtime coverage. Code checkpoint: alpha.16.
+audit or complete Home Assistant runtime coverage. Code checkpoint: beta.1.
 
 | Area | Reviewed | Remaining limits |
 | --- | --- | --- |
@@ -17,7 +17,24 @@ cleanup. Alpha.15 corrected it with failing-before/passing-after tests.
 Alpha.16 makes target temperature and Low/High standard controls while retaining
 Off/unknown-mode guards and confirmed-state semantics.
 
-95 offline tests and Ruff checks passed at the publication checkpoint. Tests use
+107 offline tests and Ruff checks passed at the current checkpoint. Tests use
 captured-format synthetic frames and boundary stand-ins rather than a full HA
 framework/radio environment. See docs/TESTING.md for checks and remaining work.
 GitHub Actions supplies separate packaging checks; assess its actual results.
+
+A whole-integration review using GPT-6 Astra on 15 November identified an overly
+broad timeout catch in alpha.17's optional zero-temperature confirmation. Beta.1
+catches only notification-wait expiry; GATT write timeouts propagate through normal
+failure/recovery handling. Fault-injection tests cover both paths and cancellation.
+
+The review verified shutdown registration against HA Core 2026.11.1. Its polling
+probe found that a released idle-event waiter may run during a new command burst;
+the transport lock still serializes sessions. No incorrect final state was proven,
+so the source comment was clarified without changing lock behaviour. Real-HA
+lifecycle fixtures remain a test-coverage priority. A second-model review with
+shared project context is not an independent human audit.
+
+Beta.1 adds a narrow repeated-zero plausibility heuristic using the last valid
+temperature and monotonic elapsed time. Rejected measurements become unknown,
+not stale values. Cold-start and long-gap limitations are documented in
+docs/BEHAVIOUR.md; live sensor behaviour still requires observation.

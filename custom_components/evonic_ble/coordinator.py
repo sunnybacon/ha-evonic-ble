@@ -67,7 +67,8 @@ class EvonicCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         try:
-            # A poll cannot publish an older state in the middle of a control burst.
+            # Wait for work already queued; the transport lock serializes sessions
+            # if another command burst starts while this waiter is waking up.
             await self.commands.wait_idle()
             return await self.transport.execute()
         except Exception as error:

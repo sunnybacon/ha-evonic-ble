@@ -1,6 +1,6 @@
 # Testing and limits
 
-Checkpoint: alpha.16, 8 November 2026. Iterative Codex-assisted development and
+Checkpoint: beta.1, 15 November 2026. Iterative Codex-assisted development and
 testing used the owner's single controller. Tests reduce specific risks; they
 do not establish universal compatibility.
 
@@ -36,7 +36,7 @@ python -m ruff check custom_components tests
 python -m ruff format --check custom_components tests
 ```
 
-95 tests and Ruff checks passed at this checkpoint. Dependencies are development
+107 tests and Ruff checks passed at this checkpoint. Dependencies are development
 only. Tests cover packets, command bounds, HCI filtering/fragmentation, ATT errors,
 confirmation, queueing, non-replay, cancellation and cleanup. Fake clients and
 boundary stand-ins are not a full real-HA framework environment or real radio.
@@ -44,10 +44,21 @@ boundary stand-ins are not a full real-HA framework environment or real radio.
 Remaining checks include actual loss during write/readback, adapter/range loss,
 Pi reboot, active-command unload, file-version
 rollback, at least 48 hours ordinary-use observation, full HA lifecycle/service
-tests, independent review and Hassfest/Marketplace validation. Wider controller
+tests and independent human review. Hassfest/Marketplace validation passed for
+alpha.17; check the release's Actions for subsequent results. Wider controller
 and calibration claims need separate evidence. See [remaining work](../REMAINING_WORK.md).
 
 Documentation/artwork changes do not trigger physical control tests. Future
 heating tests need an observer, clear sequence and prior-settings restoration.
 
 Personal dashboard customizations and their visual checks are outside integration release scope.
+
+Alpha.17 added status-only confirmation of zero room-temperature readings.
+Beta.1 distinguishes notification-wait expiry from a timeout sending the query:
+the latter propagates as a connection failure. Regressions cover failed writes
+before/after a mutation, receiver errors, cancellation, outer deadlines and
+malformed confirmation, alongside the existing unknown-measurement fallback.
+The intermittent zero symptom still needs ordinary-use observation after updating.
+Beta.1 also rejects repeated zeros that imply an abrupt drop from a recent valid
+measurement. Tests cover cold startup, elapsed time, near-freezing cooling,
+recovery, unchanged controls and references surviving missing/rejected readings.

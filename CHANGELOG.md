@@ -1,5 +1,21 @@
 # Changes
 
+## 0.1.0-beta.1 — 2026-11-15
+
+- Reject abrupt repeated zero room readings against the last valid measurement
+  and its age. Use unknown instead of a false zero or an old measurement; retain
+  valid controls. Allow cold startup, gradual cooling and sufficiently old samples.
+- 107 offline regressions cover plausibility, recovery and the timeout fix.
+- Distinguish status-notification expiry from Bluetooth query-write timeouts.
+  Only notification expiry makes an optional zero-temperature confirmation
+  unknown; write/receiver failures retain normal unavailable/recovery behaviour.
+- Add regressions before and after a mutation, receiver failure, cancellation,
+  outer deadline expiry and malformed confirmation. No mutation is replayed.
+- Refresh review/testing documentation and clarify the polling serialization
+  comment. Full HA lifecycle fixtures and wider controller testing remain open.
+- Begin beta prereleases for the implemented controls. Beta does not imply
+  calibration, support for additional controllers or complete lifecycle coverage.
+
 ## 0.1.0-alpha.17 — 2026-11-15
 
 - Confirm a zero room-temperature reading with one additional status query.
