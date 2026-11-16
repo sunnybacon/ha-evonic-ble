@@ -1,10 +1,8 @@
 # Official artwork and attribution
 
-The wordmark and square monogram come from the manufacturer's public website
-to identify the compatible product. This unofficial personal integration is
-not an Evonic or Home Assistant product or endorsement. Artwork remains its
-owner's property and is excluded from this project's MIT source-code licence.
-No ownership of the marks or manufacturer endorsement is claimed; see NOTICE.
+The wordmark and monogram come from Evonic's website to identify the compatible
+product. They remain the manufacturer's property and aren't covered by this
+project's MIT licence. Their use doesn't imply endorsement; see [NOTICE](../NOTICE).
 
 Sources retrieved 8 November 2026 from the [official contact page](https://evonicfires.co.uk/contact-us/):
 
@@ -24,7 +22,6 @@ monogram 2b51b920a541027d774891a5975429eca420c605a8078ec5a43a5cab1cf222d7
 preserving artwork, colour and transparency. It creates 256/512-square
 `icon.png` / `icon@2x.png`, plus landscape `logo.png` / `logo@2x.png` inside
 `custom_components/evonic_ble/brand`. Square padding only preserves proportions.
-No generated mark, recolouring or Home Assistant badge is used.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_brand.ps1 `

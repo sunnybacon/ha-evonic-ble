@@ -1,32 +1,33 @@
-# Publication and Marketplace status
+# Releases
 
-Repository: https://github.com/sunnybacon/ha-evonic-ble
+The integration is distributed through a Marketplace custom repository.
+No default-catalog submission has been made.
 
-This is an early personal project, not a Home Assistant-certified integration.
-Initial public code checkpoint: 0.1.0-alpha.16. Public visibility is separate
-from default Marketplace catalog inclusion; no catalog submission has been made.
+## Before publishing code
 
-The repository follows the custom-integration layout, includes English
-translations and local branding, and provides MIT-licensed source code with
-separate manufacturer-artwork attribution. The author's personal dashboard and
-optional wrapper patch are not part of this project.
+- [ ] Review the diff and update the changelog and manifest version.
+- [ ] Run the [development checks](TESTING.md).
+- [ ] Check public files, test fixtures and commit metadata for private information.
+  Use synthetic device addresses and a GitHub noreply author email.
+- [ ] Push the commit and wait for tests, Hassfest and Marketplace validation.
+- [ ] Publish a release targeting that commit. Mark alpha/beta releases as prereleases.
+- [ ] Refresh Marketplace information and check that it offers the expected version.
 
-GitHub Actions runs offline tests/lint, Hassfest and Marketplace validation.
-Use the actual Actions results for current status; the presence of a workflow
-file is not proof that a check passed. Tests/lint, Hassfest and Marketplace
-validation passed for the initial public release. Adoption of an existing manual
-installation through Marketplace was verified on HA 2026.11.1 with alpha.16;
-the existing device/entities and area survived restart, and status polling resumed.
-File-version rollback and broader installations still require their own trials.
-Known device/runtime validation limits are in ../REMAINING_WORK.md.
+Release notes should describe the changes users will notice and any installation
+steps. Keep implementation details in the supporting docs.
 
-Public packaging omits private configuration/history, APK/decompiled source,
-phone bug reports and raw captures. Test identifiers are synthetic. Review any
-diagnostics or logs before sharing them in an issue.
+Documentation changes can be committed to the main branch without a new version.
+Existing GitHub release descriptions can also be edited without changing the code.
 
-Official guidance:
+## After installing
 
-- [Publishing integrations](https://contributors.home-assistant.io/marketplace/guides/integrations/)
+Check the loaded version, entity availability, settings, status reads and logs.
+Keep a copy of the previous integration files before updating. Remaining
+hardware and lifecycle tests are tracked in [remaining work](../REMAINING_WORK.md).
+
+## Reference
+
+- [Marketplace integration guide](https://contributors.home-assistant.io/marketplace/guides/integrations/)
 - [Repository structure](https://contributors.home-assistant.io/marketplace/reference/repository-structure/)
 - [Validation](https://contributors.home-assistant.io/marketplace/reference/validation/)
 - [Branding](https://contributors.home-assistant.io/core/integrations/brands/)

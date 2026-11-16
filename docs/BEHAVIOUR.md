@@ -1,97 +1,77 @@
 # Device behaviour and Bluetooth transport
 
-## Workaround
+## Bluetooth workaround
 
-The tested fire returns ATT 0x11 during notification setup and ATT 0x0A on
-acknowledged writes, even when it processes requests and transmits valid status.
-BlueZ does not deliver those notifications normally. We send through BlueZ and
-receive FFF2 status through a read-only Linux HCI monitor socket.
+The tested controller returns ATT 0x11 during notification setup and ATT 0x0A
+on acknowledged writes, even when it processes the request. BlueZ doesn't
+deliver its notifications normally, so the integration sends through BlueZ
+and receives FFF2 status through a read-only Linux HCI monitor socket.
 
-Only the selected adapter, target peer, current connection and resolved value
-handle are accepted. The parser handles fragmentation and clears state on
-disconnect/handle reuse. Other traffic is not recorded. A fresh status matching
-the requested settings is required; ATT errors alone never count as success.
+The receiver checks the adapter, peer, live connection and notification value
+handle. It handles fragmented packets and clears partial data on disconnect or
+handle reuse. Other devices' traffic isn't recorded.
 
-The local client pins a BlueZ path while preserving HA connection-slot tracking
-and cleanup. This uses protected HA wrapper interfaces, with checks that fail
-closed on incompatibility. Revalidate after HA/Bluetooth-library upgrades. This
-is a maintenance limitation, not a general public route-pinning API. Remote
-proxies cannot provide this local HCI receive path.
+Local routing uses protected HA Bluetooth interfaces while retaining connection
+slot tracking and cleanup. Compatibility needs checking after HA/Bluetooth
+upgrades. Bluetooth proxies can't provide this receive path.
 
-Operations connect briefly and disconnect in cleanup. Services are resolved
-rather than taking the retry connector's cached-service shortcut, which caused
-incomplete service collections after contention. No other devices' caches or
-integrations are changed.
+Each operation opens a short connection, resolves services and disconnects in
+cleanup. Service caching is disabled because it produced incomplete service
+collections after another controller used the fire.
 
 ## Commands and recovery
 
-One control request executes at a time. Brightness has a single latest waiting
-value; intermediate coalesced values are not claimed to have been applied.
-Other overlapping control types are rejected, except explicit Off, which
-replaces waiting brightness and runs next. Started operations are not blindly
-interrupted.
+One control runs at a time. Rapid brightness changes keep only the latest
+waiting value. Other overlapping controls are rejected, except Off: it replaces
+waiting brightness and runs after the active operation.
 
-Waiting brightness is dropped on failure, cancellation or expiry. Explicit Off
-remains eligible after an active brightness failure: a separate user request,
-not a retry. Off cannot be delivered without a working connection.
+Failed, cancelled or expired brightness requests are discarded. A separately
+requested Off remains eligible after a brightness failure. Control writes
+aren't automatically replayed; recovery only reads status.
 
-Waiting plus execution has a 60-second request budget; cleanup can add five
-seconds. The executor has a 40-second maximum; transport including lock wait
-has a 35-second limit. Continuous slider input does not extend the deadline.
+Invalid or inapplicable requests return a validation error. Failed or uncertain
+commands make the entities unavailable and schedule a status refresh. Commands
+are confirmed against device settings before results are published. Queue state
+is available in debug logs and diagnostics.
 
-Invalid/inapplicable requests return validation errors without unavailability.
-A genuine failed/uncertain mutation makes entities unavailable and schedules
-a prompt status-only refresh. Recovery is coalesced and tied to entry lifecycle.
-Only queries are repeated automatically. No control writes are replayed.
+Timeouts are bounded: 60 seconds for a queued request, 40 seconds for its executor
+and 35 seconds for transport including lock wait. Disconnect cleanup has a
+five-second timeout. Continuous slider input doesn't extend a pending deadline.
 
-Queue state stays internal, available in debug logs/diagnostics. Entities
-publish confirmed results and availability without pending attributes or an
-hourglass. Requested values are not published as confirmed. The owner's card
-uses the shared standard Tile template.
+## Room temperature
 
-## Temperature and modes
+Status bytes 5–6 hold unsigned tenths of a degree Celsius; bytes 3–4 hold the
+target. Room temperature is polled while Off if mains is available. Values outside
+0–60°C become unknown without hiding otherwise valid controls. The sensor hasn't
+been calibrated.
 
-Room temperature uses status bytes 5–6, unsigned tenths of a degree Celsius,
-separately from target bytes 3–4. Readings near 20.4–21 °C were plausible against
-a nearby thermostat at 20.7 °C. Polling continues while Off and readings changed
-during heating trials. This is not calibration or a manufacturer specification.
+A zero triggers one more status query. If its notification wait expires, the
+temperature becomes unknown and the first packet's confirmed controls are kept.
+Write or receiver failures follow normal error recovery.
 
-A defensive 0–60 °C range suppresses implausible room readings independently of
-valid power/settings. Natural measurement changes cannot fail setting confirmation.
+Repeated zeros are checked against the last valid temperature and its age.
+The allowed drop is **2°C plus 0.5°C per elapsed minute**. This is a defensive
+heuristic, not an Evonic specification. For example, 23°C followed by repeated
+zeros one minute later is rejected.
 
-A zero reading triggers one additional status-only query, including while Off
-and during command confirmation. The latest response supplies both temperature
-and controls. If its notification wait expires, room temperature becomes unknown and the
-first response's confirmed controls remain available. Invalid measurements also
-become unknown; connection/receiver errors still use normal failure recovery.
-Repeated zeros also undergo a plausibility check against the last valid reading
-and its age: allow 2 degrees Celsius of drop plus 0.5 degrees per elapsed minute.
-This is a defensive heuristic, not a manufacturer specification. Abrupt zeros
-become unknown; valid power/settings remain usable. Rejected or missing readings
-do not lower or refresh the reference. Normal measurements restore reporting.
-Cold startup, cooling near freezing and zero after a sufficiently long gap are
-accepted after confirmation. The reference uses monotonic time, stays in memory
-and resets on reload. This cannot identify every persistent sensor fault: an old
-reference eventually stops ruling out zero, and no reference exists at startup.
-No previous reading is presented as a new measurement. Nonzero measurements are
-not smoothed or filtered by this guard. Write/receiver failures use normal recovery.
+Rejected or missing readings don't lower or refresh the reference. A valid
+measurement restores reporting. Nonzero readings aren't smoothed, and old values
+aren't presented as fresh measurements.
 
-Low / High preserves recognized controller modes. Target changes select manual
-mode 0, matching the app. Unknown modes remain visible as `controller_mode_raw`;
-182 appeared after touchscreen use, but its meaning is unresolved. Target and
-heat-level writes are guarded in unknown modes. Power/brightness use separate
-commands and preserve the mode in confirmation. No schedule editing is offered.
+The reference uses monotonic time and resets on reload. Confirmed zero is allowed
+at cold startup, near freezing or after enough time has elapsed. This means the
+guard cannot detect every persistent sensor fault.
 
-## Other controllers
+## Modes and other controllers
 
-The supplied Evonic BLE 2.8 app auto-connects saved fires at startup. Merely
-opening an app can occupy the connection. Another household phone opened
-e-touch around a restoration failure; HA recovered after it closed. Its exact
-app version and connection were not captured, so timing supports contention
-without proving it.
+Changing target temperature selects manual mode, as the phone app does, and may
+leave a native timing mode. Low/High preserves recognized modes. Unknown modes
+remain visible as `controller_mode_raw`, but target/heat-level changes are blocked.
+Mode 182 appeared after touchscreen use; its meaning is unresolved.
 
-The rechargeable touchscreen connected intermittently/slowly; the cause is
-unknown. One alpha.10 trial recovered automatically after it was fully powered
-off, without HA refresh, reload, restart or control writes. Further touchscreen
-testing is deferred because the owner does not intend to use it. Simultaneous
-access and touchscreen schedule interactions remain unverified.
+The Evonic BLE 2.8 app can connect to a saved fire as soon as it opens. Close
+phone apps fully and disconnect the touchscreen while HA needs access.
+Touchscreen connections were intermittent; further testing is deferred.
+
+HA doesn't restore power at startup or reconnection. The appliance itself
+resumed its previous On state after mains restoration in one trial.

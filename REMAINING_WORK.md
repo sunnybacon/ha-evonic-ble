@@ -1,33 +1,34 @@
-# Roadmap and known validation limits
+# Remaining work
 
-This personal integration has been tested against one legacy Evonic BLE
-controller on a Raspberry Pi with Home Assistant 2026.11.0. Initial public
-version: 0.1.0-alpha.16. Wider compatibility is not established.
+Current baseline: beta.1, tested with one legacy Evonic BLE controller on a
+Raspberry Pi running Home Assistant 2026.11.1.
 
-Completed:
+## Testing to complete
 
-- Power, target temperature, Low/High, brightness and room-temperature entities.
-- Physical control/readback trials and Off-state guards.
-- Bounded serialized commands, brightness coalescing and explicit Off priority.
-- Selected mains/native-app/touchscreen recovery trials without command replay.
-- Cached diagnostics, official brand artwork and installation/troubleshooting docs.
-- 107 offline regression tests plus lint/format checks at the beta.1 checkpoint.
-- Whole-integration model review; beta.1 narrows optional temperature timeout handling.
+- [ ] Record at least 48 hours of ordinary use after beta.1, checking temperature
+  dropouts, recovery and resource use.
+- [ ] Test radio loss during a control write and its confirmation.
+- [ ] Test loss of the Bluetooth adapter, range loss and a Pi reboot.
+- [ ] Unload the integration during an active command and check cleanup.
+- [ ] Test restoring a previous version's files.
+- [ ] Add tests using the real Home Assistant lifecycle and service framework.
+- [ ] Arrange an independent human code review if the project gains wider use.
 
-Remaining validation and maintenance:
+Results already recorded are in [testing](docs/TESTING.md). Live heating tests
+need someone present to observe the fire and restore its previous settings.
 
-- At least 48 hours of ordinary-use observation, including resource use and recovery.
-- Actual radio loss during mutation/readback, adapter/range loss and Pi reboot.
-- Entry unload during an active command and a file-version rollback trial.
-- Full real-HA lifecycle/service tests and independent review beyond the developing
-  assistant's focused review.
-- Additional controller models and sensor calibration before broader claims.
-- Revalidation of protected HA Bluetooth interfaces after relevant upgrades.
-- Investigate unknown controller mode 182 if schedule/controller support is extended.
+## Ongoing maintenance
 
-Further touchscreen concurrency testing is deferred; simultaneous native app/HA
-access is not supported reliably. Bluetooth proxies require another transport
-and are not currently supported. Schedule editing is out of scope.
+- Check the local Bluetooth workaround after HA or Bluetooth-library upgrades.
+- Record other controller models and temperature accuracy if they are tested.
+- Investigate controller mode 182 if support for native schedules is pursued.
 
-Any personal dashboard customizations are independent of this integration and
-are not prerequisites for publication or installation.
+## Deferred or outside the current scope
+
+- Further touchscreen testing: connection was intermittent, and the owner
+  doesn't plan to use it.
+- Bluetooth proxies: these need a different transport.
+- Schedule editing.
+
+The current controls and beta.1 fixes are described in the [README](README.md)
+and [changelog](CHANGELOG.md).

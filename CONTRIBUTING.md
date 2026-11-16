@@ -1,16 +1,22 @@
-# Contributing and reporting problems
+# Contributing
 
-This is an unofficial personal project developed with Codex assistance. Review
-the protocol, transport and documented validation limits before proposing changes.
-Use the development commands in docs/TESTING.md and preserve command guards,
-confirmed-state handling, bounded cleanup and the no-write-replay policy.
+Read the [device behaviour](docs/BEHAVIOUR.md) before changing the transport or
+command handling. Preserve input validation, fresh-state confirmation, bounded
+cleanup and the rule that control writes aren't automatically replayed.
+Run the [development checks](docs/TESTING.md) before submitting changes.
 
-For issues, provide HA/integration versions, host/adapter type, request and
-physical response, approximate times, and whether another controller was open.
-Download the integration's cached diagnostics where useful and review it first.
-Do not publish tokens, credentials, Bluetooth addresses, private IP addresses,
-full HA configuration, phone bug reports, APK files or raw household captures.
-Use synthetic identifiers in test fixtures. These tests do not need a real fire.
+## Reporting a problem
 
-Live heating tests need an observer and a restoration plan. Do not run automated
-device-control tests against somebody else's installation.
+Include:
+
+- HA and integration versions, plus host and Bluetooth adapter type.
+- What you requested, what the fire physically did and approximately when.
+- Whether mains power changed or another app/controller was connected.
+- Integration diagnostics, if useful, after checking them for private information.
+
+Don't post credentials, private device/IP addresses, full HA configuration,
+phone bug reports, APKs or raw household captures. Use synthetic identifiers
+in test fixtures.
+
+Offline tests don't need a fire. Live heating tests need someone present and
+a plan to restore the previous settings.
